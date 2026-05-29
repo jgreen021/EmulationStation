@@ -757,9 +757,11 @@ void GuiMenu::openSearchInput()
 					
 					// When selected, close search UI and launch game!
 					row.makeAcceptInputHandler([this, resultsGui, matchedGame] {
+						mWindow->removeGui(resultsGui);
+						mWindow->removeGui(this);
+						ViewController::get()->launch(matchedGame);
 						delete resultsGui;
 						delete this;
-						ViewController::get()->launch(matchedGame);
 					});
 
 					resultsGui->addRow(row);
