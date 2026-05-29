@@ -757,20 +757,20 @@ void GuiMenu::openSearchInput()
 					
 					// When selected, close search UI and launch game!
 					row.makeAcceptInputHandler([this, resultsGui, matchedGame] {
-						// 1. Hide the current view
-						ViewController::get()->onHide();
+						// Remove both popups from the input stack so they can never
+						// receive a duplicate input again. We do NOT delete them here
+						// because the lambda itself lives inside resultsGui - deleting
+						// it while executing would corrupt memory. The Window destructor
+						// handles final cleanup of any remaining GUI components.
+						mWindow->removeGui(resultsGui);
+						mWindow->removeGui(this);
 
-						// 2. Launch the game synchronously (blocks until emulator exits)
+						// Launch the game synchronously (blocks until emulator exits)
 						matchedGame->launchGame(mWindow);
 
-						// 3. Update metadata and cursor position on return
+						// Update metadata and restore cursor position on return
 						ViewController::get()->onFileChanged(matchedGame, FILE_METADATA_CHANGED);
 						ViewController::get()->getGameListView(matchedGame->getSystem())->setCursor(matchedGame, true);
-						ViewController::get()->onShow();
-
-						// 4. Delete the popups cleanly now that the game has exited!
-						delete resultsGui;
-						delete this;
 					});
 
 					resultsGui->addRow(row);
