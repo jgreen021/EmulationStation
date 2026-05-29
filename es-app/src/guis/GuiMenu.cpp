@@ -685,7 +685,7 @@ void GuiMenu::openSearchInput()
 
 		// Perform asynchronous HTTP query using HttpReq
 		std::string url = "http://127.0.0.1:8080/search?q=" + HttpReq::urlEncode(query);
-		auto searchReq = std::make_unique<HttpReq>(url);
+		std::unique_ptr<HttpReq> searchReq(new HttpReq(url));
 
 		// Blocking poll with timeout/safety cap (local loopback is <1ms)
 		int attempts = 0;
