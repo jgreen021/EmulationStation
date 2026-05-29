@@ -756,7 +756,9 @@ void GuiMenu::openSearchInput()
 					row.addElement(std::make_shared<TextComponent>(mWindow, displayLabel, Font::get(FONT_SIZE_MEDIUM), 0x777777FF), true);
 					
 					// When selected, close search UI and launch game!
-					row.makeAcceptInputHandler([this, matchedGame] {
+					row.makeAcceptInputHandler([this, resultsGui, matchedGame] {
+						delete resultsGui;
+						delete this;
 						ViewController::get()->launch(matchedGame);
 					});
 
