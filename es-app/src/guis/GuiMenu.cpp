@@ -22,12 +22,16 @@
 #include "FileSorts.h"
 #include "views/gamelist/IGameListView.h"
 #include "guis/GuiInfoPopup.h"
+#include "guis/GuiTextEditPopup.h"
+#include "HttpReq.h"
+#include <rapidjson/document.h>
 
 GuiMenu::GuiMenu(Window* window) : GuiComponent(window), mMenu(window, "MAIN MENU"), mVersion(window)
 {
 	bool isFullUI = UIModeController::getInstance()->isUIModeFull();
 
 	if (isFullUI) {
+		addEntry("SEARCH GAMES", 0x777777FF, true, [this] { openSearchInput(); });
 		addEntry("SCRAPER", 0x777777FF, true, [this] { openScraperSettings(); });
 		addEntry("SOUND SETTINGS", 0x777777FF, true, [this] { openSoundSettings(); });
 		addEntry("UI SETTINGS", 0x777777FF, true, [this] { openUISettings(); });
@@ -671,4 +675,102 @@ std::vector<HelpPrompt> GuiMenu::getHelpPrompts()
 	prompts.push_back(HelpPrompt("a", "select"));
 	prompts.push_back(HelpPrompt("start", "close"));
 	return prompts;
+}
+
+void GuiMenu::openSearchInput()
+{
+	mWindow->pushGui(new GuiTextEditPopup(mWindow, "SEARCH GAMES", "", [this](const std::string& query) {
+		if (query.empty())
+			return;
+
+		// Perform asynchronous HTTP query using HttpReq
+		std::string url = "http://127.0.0.1:8080/search?q=" + HttpReq::urlEncode(query);
+		auto searchReq = std::make_unique<HttpReq>(url);
+
+		// Blocking poll with timeout/safety cap (local loopback is <1ms)
+		int attempts = 0;
+		while (searchReq->status() == HttpReq::REQ_IN_PROGRESS && attempts < 100) {
+			SDL_Delay(5);
+			attempts++;
+		}
+
+		if (searchReq->status() != HttpReq::REQ_SUCCESS) {
+			mWindow->pushGui(new GuiMsgBox(mWindow, "Search service is offline or returned an error:\n" + searchReq->getErrorMsg(), "OK", nullptr));
+			return;
+		}
+
+		std::string jsonResponse = searchReq->getContent();
+		rapidjson::Document doc;
+		doc.Parse(jsonResponse.c_str());
+
+		if (doc.HasParseError() || !doc.IsArray()) {
+			mWindow->pushGui(new GuiMsgBox(mWindow, "Failed to parse search results.", "OK", nullptr));
+			return;
+		}
+
+		if (doc.Size() == 0) {
+			mWindow->pushGui(new GuiMsgBox(mWindow, "No matches found for '" + query + "'.", "OK", nullptr));
+			return;
+		}
+
+		auto resultsGui = new GuiSettings(mWindow, "SEARCH RESULTS");
+		int matchedCount = 0;
+
+		for (rapidjson::SizeType i = 0; i < doc.Size(); i++) {
+			const rapidjson::Value& gameVal = doc[i];
+			if (gameVal.HasMember("title") && gameVal["title"].IsString() &&
+				gameVal.HasMember("path") && gameVal["path"].IsString()) {
+				
+				std::string title = gameVal["title"].GetString();
+				std::string path = gameVal["path"].GetString();
+				
+				// Normalize backslashes for cross-platform matching
+				std::string normPath = path;
+				std::replace(normPath.begin(), normPath.end(), '\\', '/');
+
+				// Search through the systems vector for a matching FileData
+				FileData* matchedGame = nullptr;
+				for (auto system : SystemData::sSystemVector) {
+					if (system->isCollection())
+						continue;
+
+					std::vector<FileData*> games = system->getRootFolder()->getFilesRecursive(GAME);
+					for (auto g : games) {
+						std::string gPath = g->getPath();
+						std::replace(gPath.begin(), gPath.end(), '\\', '/');
+						if (gPath == normPath) {
+							matchedGame = g;
+							break;
+						}
+					}
+					if (matchedGame)
+						break;
+				}
+
+				if (matchedGame) {
+					matchedCount++;
+					ComponentListRow row;
+					// Text to show in list: [SYSTEM] Game Title
+					std::string displayLabel = "[" + Utils::String::toUpper(matchedGame->getSystemName()) + "] " + matchedGame->getCleanName();
+					
+					row.addElement(std::make_shared<TextComponent>(mWindow, displayLabel, Font::get(FONT_SIZE_MEDIUM), 0x777777FF), true);
+					
+					// When selected, close search UI and launch game!
+					row.makeAcceptInputHandler([this, matchedGame] {
+						ViewController::get()->launch(matchedGame);
+					});
+
+					resultsGui->addRow(row);
+				}
+			}
+		}
+
+		if (matchedCount == 0) {
+			delete resultsGui;
+			mWindow->pushGui(new GuiMsgBox(mWindow, "Matches found in DB, but files are not currently loaded in EmulationStation.", "OK", nullptr));
+		} else {
+			mWindow->pushGui(resultsGui);
+		}
+
+	}, false));
 }
