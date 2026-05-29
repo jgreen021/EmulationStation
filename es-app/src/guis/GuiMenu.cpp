@@ -757,18 +757,15 @@ void GuiMenu::openSearchInput()
 					
 					// When selected, close search UI and launch game!
 					row.makeAcceptInputHandler([matchedGame] {
-						static bool isLaunching = false;
-						if (isLaunching)
+						static unsigned int lastExitTime = 0;
+						unsigned int currentTime = SDL_GetTicks();
+						if (lastExitTime != 0 && (currentTime - lastExitTime < 2000))
 							return;
-						isLaunching = true;
 
 						ViewController::get()->launch(matchedGame);
 
-						// Flush any duplicate inputs queued during emulator exit
-						SDL_Event event;
-						while (SDL_PollEvent(&event));
-
-						isLaunching = false;
+						// Record the exact time we returned from the emulator
+						lastExitTime = SDL_GetTicks();
 					});
 
 					resultsGui->addRow(row);
