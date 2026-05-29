@@ -756,12 +756,19 @@ void GuiMenu::openSearchInput()
 					row.addElement(std::make_shared<TextComponent>(mWindow, displayLabel, Font::get(FONT_SIZE_MEDIUM), 0x777777FF), true);
 					
 					// When selected, close search UI and launch game!
-					row.makeAcceptInputHandler([this, resultsGui, matchedGame] {
-						mWindow->removeGui(resultsGui);
-						mWindow->removeGui(this);
+					row.makeAcceptInputHandler([matchedGame] {
+						static bool isLaunching = false;
+						if (isLaunching)
+							return;
+						isLaunching = true;
+
 						ViewController::get()->launch(matchedGame);
-						delete resultsGui;
-						delete this;
+
+						// Flush any duplicate inputs queued during emulator exit
+						SDL_Event event;
+						while (SDL_PollEvent(&event));
+
+						isLaunching = false;
 					});
 
 					resultsGui->addRow(row);
