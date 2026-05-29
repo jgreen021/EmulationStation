@@ -756,16 +756,21 @@ void GuiMenu::openSearchInput()
 					row.addElement(std::make_shared<TextComponent>(mWindow, displayLabel, Font::get(FONT_SIZE_MEDIUM), 0x777777FF), true);
 					
 					// When selected, close search UI and launch game!
-					row.makeAcceptInputHandler([matchedGame] {
-						static unsigned int lastExitTime = 0;
-						unsigned int currentTime = SDL_GetTicks();
-						if (lastExitTime != 0 && (currentTime - lastExitTime < 2000))
-							return;
+					row.makeAcceptInputHandler([this, resultsGui, matchedGame] {
+						// 1. Hide the current view
+						ViewController::get()->onHide();
 
-						ViewController::get()->launch(matchedGame);
+						// 2. Launch the game synchronously (blocks until emulator exits)
+						matchedGame->launchGame(mWindow);
 
-						// Record the exact time we returned from the emulator
-						lastExitTime = SDL_GetTicks();
+						// 3. Update metadata and cursor position on return
+						ViewController::get()->onFileChanged(matchedGame, FILE_METADATA_CHANGED);
+						ViewController::get()->getGameListView(matchedGame->getSystem())->setCursor(matchedGame, true);
+						ViewController::get()->onShow();
+
+						// 4. Delete the popups cleanly now that the game has exited!
+						delete resultsGui;
+						delete this;
 					});
 
 					resultsGui->addRow(row);
