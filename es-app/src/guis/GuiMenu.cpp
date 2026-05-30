@@ -713,8 +713,16 @@ void GuiMenu::openSearchInput()
 			return;
 		}
 
+		int totalGames = 0;
+		for (auto system : SystemData::sSystemVector) {
+			if (system->isGameSystem() && !system->isCollection()) {
+				totalGames += system->getRootFolder()->getFilesRecursive(GAME).size();
+			}
+		}
+
 		auto resultsGui = new GuiSettings(mWindow, "SEARCH RESULTS");
 		int matchedCount = 0;
+		std::vector<ComponentListRow> resultRows;
 
 		for (rapidjson::SizeType i = 0; i < doc.Size(); i++) {
 			const rapidjson::Value& gameVal = doc[i];
@@ -773,7 +781,7 @@ void GuiMenu::openSearchInput()
 						ViewController::get()->getGameListView(matchedGame->getSystem())->setCursor(matchedGame, true);
 					});
 
-					resultsGui->addRow(row);
+					resultRows.push_back(row);
 				}
 			}
 		}
@@ -782,10 +790,22 @@ void GuiMenu::openSearchInput()
 			delete resultsGui;
 			mWindow->pushGui(new GuiMsgBox(mWindow, "Matches found in DB, but files are not currently loaded in EmulationStation.", "OK", nullptr));
 		} else {
-			// Update title to show match count, e.g. "SEARCH RESULTS (5 of 8)"
-			std::string titleStr = "SEARCH RESULTS (" + std::to_string(matchedCount) +
-				(matchedCount < (int)doc.Size() ? " of " + std::to_string(doc.Size()) : "") + ")";
+			// Update title to show just match count
+			std::string titleStr = "SEARCH RESULTS (" + std::to_string(matchedCount) + ")";
 			resultsGui->setTitle(titleStr.c_str());
+
+			// Add an info row at the very top
+			ComponentListRow infoRow;
+			std::string infoStr = std::to_string(matchedCount) + " matches  .  " + std::to_string(totalGames) + " games in library";
+			auto infoText = std::make_shared<TextComponent>(mWindow, infoStr, Font::get(FONT_SIZE_SMALL), 0x777777FF);
+			infoRow.addElement(infoText, true, false); // Don't invert when selected
+			resultsGui->addRow(infoRow);
+
+			// Append the buffered result rows
+			for (const auto& r : resultRows) {
+				resultsGui->addRow(r);
+			}
+
 			mWindow->pushGui(resultsGui);
 		}
 
