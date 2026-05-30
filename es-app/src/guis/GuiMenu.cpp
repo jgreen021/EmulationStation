@@ -782,6 +782,10 @@ void GuiMenu::openSearchInput()
 			delete resultsGui;
 			mWindow->pushGui(new GuiMsgBox(mWindow, "Matches found in DB, but files are not currently loaded in EmulationStation.", "OK", nullptr));
 		} else {
+			// Update title to show match count, e.g. "SEARCH RESULTS (5 of 8)"
+			std::string titleStr = "SEARCH RESULTS (" + std::to_string(matchedCount) +
+				(matchedCount < (int)doc.Size() ? " of " + std::to_string(doc.Size()) : "") + ")";
+			resultsGui->setTitle(titleStr.c_str());
 			mWindow->pushGui(resultsGui);
 		}
 
