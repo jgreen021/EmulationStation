@@ -176,6 +176,16 @@ bool TextEditComponent::input(InputConfig* config, Input input)
 			mCursorRepeatDir = cursor_left ? -1 : 1;
 			mCursorRepeatTimer = -(CURSOR_REPEAT_START_DELAY - CURSOR_REPEAT_SPEED);
 			moveCursor(mCursorRepeatDir);
+		} else if(config->getDeviceId() != DEVICE_KEYBOARD && config->isMappedTo("y", input))
+		{
+			// Y button = backspace (delete character before cursor)
+			if(mCursor > 0)
+			{
+				mText.erase(mCursor - 1, 1);
+				mCursor--;
+				onTextChanged();
+				onCursorChanged();
+			}
 		} else if(config->getDeviceId() == DEVICE_KEYBOARD)
 		{
 			switch(input.id)
@@ -340,6 +350,7 @@ std::vector<HelpPrompt> TextEditComponent::getHelpPrompts()
 	{
 		prompts.push_back(HelpPrompt("up/down", "change letter"));
 		prompts.push_back(HelpPrompt("left/right", "move cursor"));
+		prompts.push_back(HelpPrompt("y", "backspace"));
 		prompts.push_back(HelpPrompt("b", "stop editing"));
 	}else{
 		prompts.push_back(HelpPrompt("a", "edit"));
