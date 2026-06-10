@@ -179,8 +179,12 @@ bool SystemScreenSaver::isFileVideo(std::string& path)
 	if (path.empty()) {
 		return false;
 	}
+	size_t dotPos = path.find_last_of(".");
+	if (dotPos == std::string::npos) {
+		return false;
+	}
 	std::string pathFilter = Settings::getInstance()->getString("SlideshowScreenSaverVideoFilter");
-	std::string pathExtension = path.substr(path.find_last_of("."));
+	std::string pathExtension = path.substr(dotPos);
 	return pathFilter.find(pathExtension) != std::string::npos;
 }
 
@@ -533,16 +537,24 @@ std::vector<std::string> SystemScreenSaver::getCustomMediaFiles(const std::strin
 	{
 		if (Utils::FileSystem::isRegularFile(*it))
 		{
+			std::string extension = Utils::FileSystem::getExtension(*it);
+
+			// Skip files with no real extension (e.g. "LICENSE", "README").
+			// getExtension() returns "." for extensionless files, which would
+			// falsely match any filter string containing a dot (like ".png").
+			if (extension.length() <= 1)
+				continue;
+
 			// If the image filter is empty, or the file extension is in the filter string,
 			//  add it to the matching files list
 			if ((imageFilter.length() <= 0) ||
-				(imageFilter.find(Utils::FileSystem::getExtension(*it)) != std::string::npos))
+				(imageFilter.find(extension) != std::string::npos))
 			{
 				matchingFiles.push_back(*it);
 			}
 			// Also add video files
-			if ((videoFilter.length() <= 0) ||
-				(videoFilter.find(Utils::FileSystem::getExtension(*it)) != std::string::npos))
+			else if ((videoFilter.length() <= 0) ||
+				(videoFilter.find(extension) != std::string::npos))
 			{
 				matchingFiles.push_back(*it);
 			}

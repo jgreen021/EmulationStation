@@ -386,6 +386,6 @@ FileData::SortType getSortTypeFromString(std::string desc) {
 			return sort;
 		}
 	}
-	// if not found default to "name, ascending"
-	return FileSorts::SortTypes.at(0);
+	// if not found default to "rating, descending"
+	return FileSorts::SortTypes.at(3);
 }

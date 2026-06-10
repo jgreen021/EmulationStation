@@ -25,11 +25,11 @@ CollectionSystemManager::CollectionSystemManager(Window* window) : mWindow(windo
 {
 	CollectionSystemDecl systemDecls[] = {
 		//type                  name             long name (display)  default sort (key, order)   theme folder            isCustom
-		{ AUTO_ALL_GAMES,       "all",           "all games",         "name, ascending",          "auto-allgames",        false },
+		{ AUTO_ALL_GAMES,       "all",           "all games",         "rating, descending",       "auto-allgames",        false },
 		{ AUTO_LAST_PLAYED,     "recent",        "last played",       "last played, descending",  "auto-lastplayed",      false },
-		{ AUTO_FAVORITES,       "favorites",     "favorites",         "name, ascending",          "auto-favorites",       false },
-		{ AUTO_RANDOM,          RANDOM_COLL_ID,  "random",            "name, ascending",          "auto-random",          false },
-		{ CUSTOM_COLLECTION,    CUSTOM_COLL_ID,  "collections",       "name, ascending",          "custom-collections",   true  }
+		{ AUTO_FAVORITES,       "favorites",     "favorites",         "rating, descending",       "auto-favorites",       false },
+		{ AUTO_RANDOM,          RANDOM_COLL_ID,  "random",            "rating, descending",       "auto-random",          false },
+		{ CUSTOM_COLLECTION,    CUSTOM_COLL_ID,  "collections",       "rating, descending",       "custom-collections",   true  }
 	};
 
 	// create a map

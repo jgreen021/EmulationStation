@@ -9,6 +9,9 @@
 #define CURSOR_REPEAT_START_DELAY 500
 #define CURSOR_REPEAT_SPEED 28 // lower is faster
 
+// Character set for D-pad cycling (gamepad text entry without a keyboard)
+static const std::string DPAD_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ";
+
 TextEditComponent::TextEditComponent(Window* window) : GuiComponent(window),
 	mBox(window, ":/textinput_ninepatch.png"), mFocused(false),
 	mScrollOffset(0.0f, 0.0f), mCursor(0), mEditing(false), mFont(Font::get(FONT_SIZE_MEDIUM, FONT_PATH_LIGHT)),
@@ -130,10 +133,44 @@ bool TextEditComponent::input(InputConfig* config, Input input)
 
 		if(config->getDeviceId() != DEVICE_KEYBOARD && config->isMappedLike("up", input))
 		{
-			// TODO
+			// Cycle character forward at cursor position
+			if(mCursor >= mText.length())
+			{
+				// At end of text: insert first character from set
+				mText.insert(mText.end(), DPAD_CHARS[0]);
+			}
+			else
+			{
+				// Find current char in set and advance to next
+				char cur = toupper(mText[mCursor]);
+				size_t pos = DPAD_CHARS.find(cur);
+				if(pos == std::string::npos)
+					mText[mCursor] = DPAD_CHARS[0];
+				else
+					mText[mCursor] = DPAD_CHARS[(pos + 1) % DPAD_CHARS.size()];
+			}
+			onTextChanged();
+			onCursorChanged();
 		}else if(config->getDeviceId() != DEVICE_KEYBOARD && config->isMappedLike("down", input))
 		{
-			// TODO
+			// Cycle character backward at cursor position
+			if(mCursor >= mText.length())
+			{
+				// At end of text: insert last character from set
+				mText.insert(mText.end(), DPAD_CHARS[DPAD_CHARS.size() - 1]);
+			}
+			else
+			{
+				// Find current char in set and go to previous
+				char cur = toupper(mText[mCursor]);
+				size_t pos = DPAD_CHARS.find(cur);
+				if(pos == std::string::npos)
+					mText[mCursor] = DPAD_CHARS[DPAD_CHARS.size() - 1];
+				else
+					mText[mCursor] = DPAD_CHARS[(pos + DPAD_CHARS.size() - 1) % DPAD_CHARS.size()];
+			}
+			onTextChanged();
+			onCursorChanged();
 		}else if(cursor_left || cursor_right)
 		{
 			mCursorRepeatDir = cursor_left ? -1 : 1;
@@ -301,7 +338,8 @@ std::vector<HelpPrompt> TextEditComponent::getHelpPrompts()
 	std::vector<HelpPrompt> prompts;
 	if(mEditing)
 	{
-		prompts.push_back(HelpPrompt("up/down/left/right", "move cursor"));
+		prompts.push_back(HelpPrompt("up/down", "change letter"));
+		prompts.push_back(HelpPrompt("left/right", "move cursor"));
 		prompts.push_back(HelpPrompt("b", "stop editing"));
 	}else{
 		prompts.push_back(HelpPrompt("a", "edit"));
