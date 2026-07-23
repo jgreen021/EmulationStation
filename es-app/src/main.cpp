@@ -288,6 +288,7 @@ bool loadSystemConfigFile(Window* window, const char** errorString)
 //called on exit, assuming we get far enough to have the log initialized
 void onExit()
 {
+	stopSearchService();
 	Log::close();
 }
 
@@ -360,6 +361,8 @@ int main(int argc, char* argv[])
 
 	if(!scrape_cmdline)
 	{
+		startSearchService();
+
 		if(!window.init())
 		{
 			LOG(LogError) << "Window failed to initialize!";

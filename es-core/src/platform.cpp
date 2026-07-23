@@ -3,12 +3,18 @@
 #include <SDL_events.h>
 #ifdef WIN32
 #include <codecvt>
+#include <Windows.h>
 #else
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <signal.h>
 #endif
 #include <fcntl.h>
+#include <vector>
 
 #include "Log.h"
+#include "utils/FileSystemUtil.h"
 
 int runShutdownCommand()
 {
@@ -92,3 +98,127 @@ void processQuitMode()
 		break;
 	}
 }
+
+#ifdef WIN32
+static HANDLE gSearchServiceHandle = nullptr;
+
+void startSearchService()
+{
+	std::string exePath = Utils::FileSystem::getExePath() + "/es-search-service.exe";
+	if (!Utils::FileSystem::exists(exePath))
+	{
+		LOG(LogWarning) << "es-search-service.exe not found in " << Utils::FileSystem::getExePath();
+		return;
+	}
+
+	STARTUPINFOA si;
+	PROCESS_INFORMATION pi;
+	ZeroMemory(&si, sizeof(si));
+	si.cb = sizeof(si);
+	ZeroMemory(&pi, sizeof(pi));
+
+	DWORD creationFlags = CREATE_NO_WINDOW;
+
+	std::string cmd = "\"" + exePath + "\"";
+	std::vector<char> cmdBuf(cmd.begin(), cmd.end());
+	cmdBuf.push_back('\0');
+
+	if (CreateProcessA(
+		nullptr,
+		cmdBuf.data(),
+		nullptr,
+		nullptr,
+		FALSE,
+		creationFlags,
+		nullptr,
+		Utils::FileSystem::getExePath().c_str(),
+		&si,
+		&pi
+	))
+	{
+		gSearchServiceHandle = pi.hProcess;
+		CloseHandle(pi.hThread);
+		LOG(LogInfo) << "Started search service process (PID: " << pi.dwProcessId << ")";
+	}
+	else
+	{
+		LOG(LogError) << "Failed to start search service process! Error code: " << GetLastError();
+	}
+}
+
+void stopSearchService()
+{
+	if (gSearchServiceHandle != nullptr)
+	{
+		LOG(LogInfo) << "Terminating search service process...";
+		TerminateProcess(gSearchServiceHandle, 0);
+		CloseHandle(gSearchServiceHandle);
+		gSearchServiceHandle = nullptr;
+	}
+}
+#else
+static pid_t gSearchServicePid = -1;
+
+void startSearchService()
+{
+	std::string exePath = Utils::FileSystem::getExePath() + "/es-search-service";
+	if (!Utils::FileSystem::exists(exePath))
+	{
+		LOG(LogWarning) << "es-search-service not found in " << Utils::FileSystem::getExePath();
+		return;
+	}
+
+	pid_t pid = fork();
+	if (pid == -1)
+	{
+		LOG(LogError) << "Failed to fork search service process!";
+	}
+	else if (pid == 0)
+	{
+		int devNull = open("/dev/null", O_RDWR);
+		if (devNull >= 0)
+		{
+			dup2(devNull, STDIN_FILENO);
+			dup2(devNull, STDOUT_FILENO);
+			dup2(devNull, STDERR_FILENO);
+			close(devNull);
+		}
+
+		char* const argv[] = { const_cast<char*>(exePath.c_str()), nullptr };
+		execv(exePath.c_str(), argv);
+
+		exit(1);
+	}
+	else
+	{
+		gSearchServicePid = pid;
+		LOG(LogInfo) << "Started search service process (PID: " << pid << ")";
+	}
+}
+
+void stopSearchService()
+{
+	if (gSearchServicePid > 0)
+	{
+		LOG(LogInfo) << "Terminating search service process (PID: " << gSearchServicePid << ")...";
+		kill(gSearchServicePid, SIGTERM);
+		
+		int status;
+		int attempts = 0;
+		while (waitpid(gSearchServicePid, &status, WNOHANG) == 0 && attempts < 10)
+		{
+			usleep(100000);
+			attempts++;
+		}
+		
+		if (waitpid(gSearchServicePid, &status, WNOHANG) == 0)
+		{
+			LOG(LogWarning) << "Search service process did not terminate cleanly. Force killing (SIGKILL)...";
+			kill(gSearchServicePid, SIGKILL);
+			waitpid(gSearchServicePid, &status, 0);
+		}
+		
+		gSearchServicePid = -1;
+	}
+}
+#endif

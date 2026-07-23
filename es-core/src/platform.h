@@ -21,4 +21,7 @@ int runSystemCommand(const std::string& cmd_utf8); // run a utf-8 encoded in the
 int quitES(QuitMode mode = QuitMode::QUIT);
 void processQuitMode();
 
+void startSearchService();
+void stopSearchService();
+
 #endif // ES_CORE_PLATFORM_H
